@@ -4,23 +4,25 @@ import { supabase } from '../lib/supabase';
 
 type SyncStatus = 'idle' | 'syncing' | 'success' | 'error';
 
-interface SupabaseUser {
+interface AuthUser {
   id: string;
-  clerk_id?: string;
   email?: string;
-  first_name?: string;
-  last_name?: string;
+  user_metadata?: {
+    first_name?: string;
+    last_name?: string;
+    full_name?: string;
+  };
   created_at?: string;
 }
 
 export function useSyncClerkWithSupabase() {
   const { isSignedIn, user, isLoaded } = useUser();
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
-  const [supabaseUser, setSupabaseUser] = useState<SupabaseUser | null>(null);
+  const [supabaseUser, setSupabaseUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
-    const syncUser = async () => {
+    const checkAuthUser = async () => {
       if (!isLoaded || !isSignedIn || !user) {
         setSyncStatus('idle');
         setSupabaseUser(null);
@@ -31,47 +33,29 @@ export function useSyncClerkWithSupabase() {
         setIsLoading(true);
         setSyncStatus('syncing');
 
-        const userData = {
-          clerk_id: user.id,
-          email: user.primaryEmailAddress?.emailAddress,
-          first_name: user.firstName,
-          last_name: user.lastName,
-        };
-
-        const { error } = await supabase
-          .from('users')
-          .upsert(userData, { 
-            onConflict: 'clerk_id',
-            ignoreDuplicates: false 
-          });
+        // Get the current authenticated user from Supabase Auth
+        const { data: { user: authUser }, error } = await supabase.auth.getUser();
 
         if (error) {
-          console.error('Supabase sync error:', error);
+          console.error('Failed to get Supabase auth user:', error);
           setSyncStatus('error');
-        } else {
-          console.log('User synced successfully');
+        } else if (authUser) {
+          console.log('Supabase auth user found:', authUser);
+          setSupabaseUser(authUser);
           setSyncStatus('success');
-          
-          // Fetch the synced user data
-          const { data: fetchedUser, error: fetchError } = await supabase
-            .from('users')
-            .select('*')
-            .eq('clerk_id', user.id)
-            .single();
-
-          if (!fetchError && fetchedUser) {
-            setSupabaseUser(fetchedUser);
-          }
+        } else {
+          console.log('No Supabase auth user found - user needs to authenticate with Supabase');
+          setSyncStatus('error');
         }
       } catch (error) {
-        console.error('Sync failed:', error);
+        console.error('Auth check failed:', error);
         setSyncStatus('error');
       } finally {
         setIsLoading(false);
       }
     };
 
-    syncUser();
+    checkAuthUser();
   }, [isLoaded, isSignedIn, user]);
 
   return {

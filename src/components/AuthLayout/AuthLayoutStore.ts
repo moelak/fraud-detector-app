@@ -39,6 +39,11 @@ export class AuthLayoutStore {
     if (!this.user) return '';
     return this.fullName || this.user.username || this.user.email;
   }
+
+  // Helper method to get auth user ID for RLS policies
+  get authUserId() {
+    return this.user?.id || null;
+  }
 }
 
 export const authLayoutStore = new AuthLayoutStore();

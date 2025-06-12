@@ -32,13 +32,13 @@ const UserProfile = observer(() => {
   const getSyncStatusText = () => {
     switch (syncStatus) {
       case 'success':
-        return 'Synced with database';
+        return 'Connected to Supabase Auth';
       case 'error':
-        return 'Sync failed - check console for details';
+        return 'Not connected to Supabase Auth';
       case 'syncing':
-        return 'Syncing...';
+        return 'Checking connection...';
       default:
-        return 'Not synced';
+        return 'Not connected';
     }
   };
 
@@ -101,58 +101,59 @@ const UserProfile = observer(() => {
           </div>
         </div>
 
-        {/* Supabase Data */}
+        {/* Supabase Auth Data */}
         <div className="space-y-3">
-          <h4 className="text-sm font-medium text-gray-900">Database Record</h4>
+          <h4 className="text-sm font-medium text-gray-900">Supabase Auth</h4>
           {supabaseUser ? (
             <div className="space-y-2 text-sm">
               <div className="flex items-center space-x-2">
                 <UserIcon className="h-4 w-4 text-gray-400" />
-                <span className="text-gray-600">DB ID: {supabaseUser.id}</span>
+                <span className="text-gray-600">Auth ID: {supabaseUser.id}</span>
               </div>
-              {supabaseUser.clerk_id && (
+              {supabaseUser.email && (
                 <div className="flex items-center space-x-2">
-                  <span className="text-gray-600">Clerk ID: {supabaseUser.clerk_id}</span>
+                  <EnvelopeIcon className="h-4 w-4 text-gray-400" />
+                  <span className="text-gray-600">{supabaseUser.email}</span>
                 </div>
               )}
               {supabaseUser.created_at && (
                 <div className="flex items-center space-x-2">
                   <CalendarIcon className="h-4 w-4 text-gray-400" />
                   <span className="text-gray-600">
-                    Created: {new Date(supabaseUser.created_at).toLocaleDateString()}
+                    Auth Created: {new Date(supabaseUser.created_at).toLocaleDateString()}
                   </span>
                 </div>
               )}
             </div>
           ) : (
             <div className="text-sm text-gray-500">
-              {syncStatus === 'error' ? 'Failed to load database record' : 'Loading...'}
+              {syncStatus === 'error' ? 'Not authenticated with Supabase' : 'Loading...'}
             </div>
           )}
         </div>
       </div>
 
-      {/* Debug Info (only show if there's an error) */}
+      {/* Integration Status */}
       {syncStatus === 'error' && (
         <div className="mt-6 pt-6 border-t border-gray-100">
-          <details className="text-sm">
-            <summary className="cursor-pointer text-gray-700 font-medium">
-              Debug Information
-            </summary>
-            <div className="mt-2 p-3 bg-red-50 rounded-lg">
-              <p className="text-red-700">
-                Sync failed. This might be because:
-              </p>
-              <ul className="mt-2 text-red-600 text-xs list-disc list-inside space-y-1">
-                <li>The users table doesn't have a 'clerk_id' column</li>
-                <li>Row Level Security (RLS) is preventing access</li>
-                <li>The table structure is different than expected</li>
-              </ul>
-              <p className="mt-2 text-red-600 text-xs">
-                Check the browser console for detailed error messages.
-              </p>
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <div className="flex">
+              <ExclamationTriangleIcon className="h-5 w-5 text-yellow-400" />
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-yellow-800">
+                  Clerk-Supabase Integration Required
+                </h3>
+                <div className="mt-2 text-sm text-yellow-700">
+                  <p>To complete the integration, you need to:</p>
+                  <ul className="mt-2 list-disc list-inside space-y-1">
+                    <li>Set up a Clerk JWT template for Supabase</li>
+                    <li>Configure Supabase to accept Clerk tokens</li>
+                    <li>Ensure users authenticate through both systems</li>
+                  </ul>
+                </div>
+              </div>
             </div>
-          </details>
+          </div>
         </div>
       )}
     </div>
