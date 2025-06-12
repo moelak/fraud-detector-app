@@ -12,7 +12,7 @@ import {
 
 const UserProfile = observer(() => {
   const { user } = useUser();
-  const { syncStatus, supabaseUser, isLoading } = useSyncClerkWithSupabase();
+  const { syncStatus, supabaseUser, isLoading, refreshSession } = useSyncClerkWithSupabase();
 
   if (!user) return null;
 
@@ -42,6 +42,11 @@ const UserProfile = observer(() => {
     }
   };
 
+  const handleRefreshConnection = async () => {
+    await refreshSession();
+    // The useEffect in useSyncClerkWithSupabase will automatically recheck
+  };
+
   return (
     <div className="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <div className="flex items-center justify-between mb-6">
@@ -56,6 +61,14 @@ const UserProfile = observer(() => {
           }`}>
             {getSyncStatusText()}
           </span>
+          {syncStatus === 'error' && (
+            <button
+              onClick={handleRefreshConnection}
+              className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition-colors"
+            >
+              Retry
+            </button>
+          )}
         </div>
       </div>
 
@@ -141,15 +154,20 @@ const UserProfile = observer(() => {
               <ExclamationTriangleIcon className="h-5 w-5 text-yellow-400" />
               <div className="ml-3">
                 <h3 className="text-sm font-medium text-yellow-800">
-                  Clerk-Supabase Integration Required
+                  Clerk-Supabase Integration Setup Required
                 </h3>
                 <div className="mt-2 text-sm text-yellow-700">
-                  <p>To complete the integration, you need to:</p>
-                  <ul className="mt-2 list-disc list-inside space-y-1">
-                    <li>Set up a Clerk JWT template for Supabase</li>
-                    <li>Configure Supabase to accept Clerk tokens</li>
-                    <li>Ensure users authenticate through both systems</li>
-                  </ul>
+                  <p>To complete the integration, follow these steps:</p>
+                  <ol className="mt-2 list-decimal list-inside space-y-1">
+                    <li>Go to <strong>Clerk Dashboard → JWT Templates</strong></li>
+                    <li>Create a new template named <code className="bg-yellow-100 px-1 rounded">supabase</code></li>
+                    <li>Set the audience to <code className="bg-yellow-100 px-1 rounded">authenticated</code></li>
+                    <li>Add your Supabase project URL to the allowed list</li>
+                    <li>Configure the JWT claims to include user metadata</li>
+                  </ol>
+                  <p className="mt-2 text-xs">
+                    Once configured, users will automatically appear in Supabase → Authentication → Users
+                  </p>
                 </div>
               </div>
             </div>

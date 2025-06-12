@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useUser } from '@clerk/clerk-react';
 import { supabase } from '../lib/supabase';
+import { useLinkClerkToSupabase } from './useLinkClerkToSupabase';
 
 type SyncStatus = 'idle' | 'syncing' | 'success' | 'error';
 
@@ -20,10 +21,17 @@ export function useSyncClerkWithSupabase() {
   const [syncStatus, setSyncStatus] = useState<SyncStatus>('idle');
   const [supabaseUser, setSupabaseUser] = useState<AuthUser | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Link Clerk session to Supabase
+  const { refreshSession } = useLinkClerkToSupabase();
 
   useEffect(() => {
     const checkAuthUser = async () => {
-      if (!isLoaded || !isSignedIn || !user) {
+      if (!isLoaded) {
+        return;
+      }
+
+      if (!isSignedIn || !user) {
         setSyncStatus('idle');
         setSupabaseUser(null);
         return;
@@ -33,18 +41,34 @@ export function useSyncClerkWithSupabase() {
         setIsLoading(true);
         setSyncStatus('syncing');
 
+        // Wait a moment for the session to be set by useLinkClerkToSupabase
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
         // Get the current authenticated user from Supabase Auth
         const { data: { user: authUser }, error } = await supabase.auth.getUser();
 
         if (error) {
           console.error('Failed to get Supabase auth user:', error);
-          setSyncStatus('error');
+          // Try to refresh the session once
+          await refreshSession();
+          
+          // Try again after refresh
+          const { data: { user: retryUser }, error: retryError } = await supabase.auth.getUser();
+          
+          if (retryError || !retryUser) {
+            console.error('Still no Supabase auth user after refresh:', retryError);
+            setSyncStatus('error');
+          } else {
+            console.log('Supabase auth user found after refresh:', retryUser);
+            setSupabaseUser(retryUser);
+            setSyncStatus('success');
+          }
         } else if (authUser) {
           console.log('Supabase auth user found:', authUser);
           setSupabaseUser(authUser);
           setSyncStatus('success');
         } else {
-          console.log('No Supabase auth user found - user needs to authenticate with Supabase');
+          console.log('No Supabase auth user found - JWT integration may not be configured');
           setSyncStatus('error');
         }
       } catch (error) {
@@ -56,11 +80,12 @@ export function useSyncClerkWithSupabase() {
     };
 
     checkAuthUser();
-  }, [isLoaded, isSignedIn, user]);
+  }, [isLoaded, isSignedIn, user, refreshSession]);
 
   return {
     syncStatus,
     supabaseUser,
-    isLoading
+    isLoading,
+    refreshSession
   };
 }

@@ -7,7 +7,7 @@ import AuthLayout from './components/AuthLayout/AuthLayout';
 import { useSyncClerkWithSupabase } from './hooks/useSyncClerkWithSupabase';
 
 const App = observer(() => {
-  // Initialize the sync hook at the app level
+  // Initialize the sync hook at the app level to ensure Clerk-Supabase integration
   useSyncClerkWithSupabase();
 
   return (
