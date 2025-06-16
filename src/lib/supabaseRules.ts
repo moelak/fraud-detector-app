@@ -16,7 +16,7 @@ export interface Rule {
   is_deleted: boolean;
   created_at: string;
   updated_at: string;
-}
+} 
 
 export interface CreateRuleData {
   name: string;
