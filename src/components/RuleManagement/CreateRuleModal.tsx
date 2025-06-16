@@ -4,10 +4,8 @@ import { ruleManagementStore } from './RuleManagementStore';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import type { CreateRuleData } from '../../lib/supabaseRules';
 
-interface FormData extends CreateRuleData {}
-
 const CreateRuleModal = observer(() => {
-  const [formData, setFormData] = useState<FormData>({
+  const [formData, setFormData] = useState<CreateRuleData>({
     name: '',
     category: 'Behavioral',
     status: 'active',
@@ -17,7 +15,7 @@ const CreateRuleModal = observer(() => {
     severity: 'medium'
   });
 
-  const [errors, setErrors] = useState<Partial<FormData>>({});
+  const [errors, setErrors] = useState<Partial<CreateRuleData>>({});
   const [isTestingRule, setIsTestingRule] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -54,7 +52,7 @@ const CreateRuleModal = observer(() => {
   }, [ruleManagementStore.editingRule, ruleManagementStore.isCreateModalOpen]);
 
   const validateForm = (): boolean => {
-    const newErrors: Partial<FormData> = {};
+    const newErrors: Partial<CreateRuleData> = {};
 
     if (!formData.name.trim()) {
       newErrors.name = 'Rule name is required';
@@ -143,10 +141,10 @@ const CreateRuleModal = observer(() => {
     ruleManagementStore.closeCreateModal();
   };
 
-  const handleInputChange = (field: keyof FormData, value: string | boolean) => {
+  const handleInputChange = (field: keyof CreateRuleData, value: string | boolean) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
-    if (errors[field as keyof Partial<FormData>]) {
+    if (errors[field as keyof Partial<CreateRuleData>]) {
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
   };
