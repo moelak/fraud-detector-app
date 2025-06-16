@@ -1,4 +1,5 @@
 import { observer } from 'mobx-react-lite';
+import { useEffect } from 'react';
 import { ruleManagementStore } from './RuleManagementStore';
 import CreateRuleModal from './CreateRuleModal';
 import ChargebackAnalysisModal from './ChargebackAnalysisModal';
@@ -9,14 +10,26 @@ import {
   ExclamationTriangleIcon,
   MagnifyingGlassIcon,
   ChartBarIcon,
+  ExclamationCircleIcon,
 } from '@heroicons/react/24/outline';
 
 const RuleManagement = observer(() => {
+  // Load rules when component mounts
+  useEffect(() => {
+    ruleManagementStore.loadRules();
+  }, []);
+
   const tabs = [
     { id: 'active' as const, name: 'Active Rules', count: ruleManagementStore.activeRulesCount },
     { id: 'all' as const, name: 'All Rules', count: ruleManagementStore.rules.length },
     { id: 'attention' as const, name: 'Needs Attention', count: ruleManagementStore.needsAttentionCount },
   ];
+
+  const handleDeleteRule = async (ruleId: string, ruleName: string) => {
+    if (window.confirm(`Are you sure you want to delete the rule "${ruleName}"? This action cannot be undone.`)) {
+      await ruleManagementStore.deleteRule(ruleId);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -42,6 +55,30 @@ const RuleManagement = observer(() => {
           </button>
         </div>
       </div>
+
+      {/* Error Display */}
+      {ruleManagementStore.error && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+          <div className="flex items-center">
+            <ExclamationCircleIcon className="h-5 w-5 text-red-400 mr-2" />
+            <span className="text-red-800">{ruleManagementStore.error}</span>
+            <button
+              onClick={ruleManagementStore.clearError}
+              className="ml-auto text-red-600 hover:text-red-800"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Loading State */}
+      {ruleManagementStore.isLoading && (
+        <div className="flex justify-center items-center py-12">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-2 text-gray-600">Loading rules...</span>
+        </div>
+      )}
 
       {/* Tabs and Search */}
       <div className="bg-white rounded-xl shadow-sm border border-gray-100">
@@ -88,123 +125,133 @@ const RuleManagement = observer(() => {
         </div>
 
         {/* Rules Table */}
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Rule
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Category
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Catches
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  False Positives
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Effectiveness
-                </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
-              {ruleManagementStore.filteredRules.map((rule) => (
-                <tr key={rule.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4">
-                    <div className="flex items-start space-x-3">
-                      <div className={`p-2 rounded-lg ${
-                        rule.severity === 'high' ? 'bg-red-100' :
-                        rule.severity === 'medium' ? 'bg-yellow-100' :
-                        'bg-green-100'
-                      }`}>
-                        {rule.severity === 'high' ? (
-                          <ExclamationTriangleIcon className="h-5 w-5 text-red-600" />
-                        ) : (
-                          <ShieldCheckIcon className="h-5 w-5 text-blue-600" />
-                        )}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="text-sm font-medium text-gray-900 truncate">{rule.name}</h3>
-                        <p className="text-sm text-gray-500 mt-1 line-clamp-2">{rule.description}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
-                      {rule.category}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      rule.status === 'active' ? 'bg-green-100 text-green-800' : 
-                      rule.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
-                      'bg-yellow-100 text-yellow-800'
-                    }`}>
-                      {rule.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{rule.catches.toLocaleString()}</div>
-                    <div className="text-xs text-gray-500">fraud caught</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="text-sm font-medium text-gray-900">{rule.falsePositives.toLocaleString()}</div>
-                    <div className="text-xs text-gray-500">false flags</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center">
-                      <div className={`text-sm font-medium ${
-                        rule.effectiveness >= 90 ? 'text-green-600' :
-                        rule.effectiveness >= 70 ? 'text-yellow-600' :
-                        'text-red-600'
-                      }`}>
-                        {rule.effectiveness}%
-                      </div>
-                      <div className={`ml-2 w-16 bg-gray-200 rounded-full h-2`}>
-                        <div
-                          className={`h-2 rounded-full ${
-                            rule.effectiveness >= 90 ? 'bg-green-500' :
-                            rule.effectiveness >= 70 ? 'bg-yellow-500' :
-                            'bg-red-500'
-                          }`}
-                          style={{ width: `${rule.effectiveness}%` }}
-                        />
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="flex items-center space-x-3">
-                      <button
-                        onClick={() => ruleManagementStore.toggleRuleStatus(rule.id)}
-                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                          rule.status === 'active' ? 'bg-blue-600' : 'bg-gray-200'
-                        }`}
-                      >
-                        <span
-                          className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                            rule.status === 'active' ? 'translate-x-6' : 'translate-x-1'
-                          }`}
-                        />
-                      </button>
-                      <RuleActionsMenu rule={rule} />
-                    </div>
-                  </td>
+        {!ruleManagementStore.isLoading && (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Rule
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Category
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Catches
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    False Positives
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Effectiveness
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {ruleManagementStore.filteredRules.map((rule) => (
+                  <tr key={rule.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4">
+                      <div className="flex items-start space-x-3">
+                        <div className={`p-2 rounded-lg ${
+                          rule.severity === 'high' ? 'bg-red-100' :
+                          rule.severity === 'medium' ? 'bg-yellow-100' :
+                          'bg-green-100'
+                        }`}>
+                          {rule.severity === 'high' ? (
+                            <ExclamationTriangleIcon className="h-5 w-5 text-red-600" />
+                          ) : (
+                            <ShieldCheckIcon className="h-5 w-5 text-blue-600" />
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-sm font-medium text-gray-900 truncate">{rule.name}</h3>
+                          <p className="text-sm text-gray-500 mt-1 line-clamp-2">{rule.description}</p>
+                          {rule.log_only && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800 mt-1">
+                              Log Only
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                        {rule.category}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                        rule.status === 'active' ? 'bg-green-100 text-green-800' : 
+                        rule.status === 'inactive' ? 'bg-gray-100 text-gray-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {rule.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{rule.catches.toLocaleString()}</div>
+                      <div className="text-xs text-gray-500">fraud caught</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm font-medium text-gray-900">{rule.false_positives.toLocaleString()}</div>
+                      <div className="text-xs text-gray-500">false flags</div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center">
+                        <div className={`text-sm font-medium ${
+                          rule.effectiveness >= 90 ? 'text-green-600' :
+                          rule.effectiveness >= 70 ? 'text-yellow-600' :
+                          'text-red-600'
+                        }`}>
+                          {rule.effectiveness}%
+                        </div>
+                        <div className={`ml-2 w-16 bg-gray-200 rounded-full h-2`}>
+                          <div
+                            className={`h-2 rounded-full ${
+                              rule.effectiveness >= 90 ? 'bg-green-500' :
+                              rule.effectiveness >= 70 ? 'bg-yellow-500' :
+                              'bg-red-500'
+                            }`}
+                            style={{ width: `${rule.effectiveness}%` }}
+                          />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="flex items-center space-x-3">
+                        <button
+                          onClick={() => ruleManagementStore.toggleRuleStatus(rule.id)}
+                          className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                            rule.status === 'active' ? 'bg-blue-600' : 'bg-gray-200'
+                          }`}
+                        >
+                          <span
+                            className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                              rule.status === 'active' ? 'translate-x-6' : 'translate-x-1'
+                            }`}
+                          />
+                        </button>
+                        <RuleActionsMenu 
+                          rule={rule} 
+                          onDelete={() => handleDeleteRule(rule.id, rule.name)}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
 
         {/* Empty State */}
-        {ruleManagementStore.filteredRules.length === 0 && (
+        {!ruleManagementStore.isLoading && ruleManagementStore.filteredRules.length === 0 && (
           <div className="text-center py-12">
             <ShieldCheckIcon className="mx-auto h-12 w-12 text-gray-400" />
             <h3 className="mt-2 text-sm font-medium text-gray-900">

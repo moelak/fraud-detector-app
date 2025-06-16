@@ -1,117 +1,45 @@
-import { makeAutoObservable } from "mobx";
+import { makeAutoObservable, runInAction } from "mobx";
+import { SupabaseRulesService, Rule as SupabaseRule, CreateRuleData, UpdateRuleData } from "../../lib/supabaseRules";
 
-export interface Rule {
-  id: number;
-  name: string;
-  description: string;
-  category: string;
-  condition: string;
-  severity: 'low' | 'medium' | 'high';
-  status: 'active' | 'inactive' | 'warning';
-  createdAt: string;
-  updatedAt: string;
-  catches: number;
-  falsePositives: number;
-  effectiveness: number;
+export interface Rule extends SupabaseRule {
+  // Convert database rule to store format
 }
 
 export class RuleManagementStore {
-  rules: Rule[] = [
-    {
-      id: 1,
-      name: 'High Transaction Amount',
-      description: 'Flag transactions over $10,000 from accounts less than 30 days old',
-      category: 'Payment Method',
-      condition: 'transaction.amount > 10000 && user.accountAge < 30',
-      severity: 'high',
-      status: 'active',
-      createdAt: '2024-01-15',
-      updatedAt: '2024-01-15',
-      catches: 1247,
-      falsePositives: 23,
-      effectiveness: 98
-    },
-    {
-      id: 2,
-      name: 'Multiple Failed Attempts',
-      description: 'Flag accounts with more than 3 failed login attempts within 1 hour',
-      category: 'Behavioral',
-      condition: 'user.failed_attempts > 3 && timeWindow < 3600',
-      severity: 'medium',
-      status: 'active',
-      createdAt: '2024-01-10',
-      updatedAt: '2024-01-12',
-      catches: 892,
-      falsePositives: 45,
-      effectiveness: 95
-    },
-    {
-      id: 3,
-      name: 'Unusual Location',
-      description: 'Flag transactions from geographic locations more than 500 miles from usual patterns',
-      category: 'Technical',
-      condition: 'location.distance_from_usual > 500',
-      severity: 'medium',
-      status: 'active',
-      createdAt: '2024-01-08',
-      updatedAt: '2024-01-08',
-      catches: 456,
-      falsePositives: 78,
-      effectiveness: 85
-    },
-    {
-      id: 4,
-      name: 'Identity Verification Failed',
-      description: 'Flag when identity verification fails multiple times for the same user',
-      category: 'Identity',
-      condition: 'identity.verification_failures >= 2',
-      severity: 'high',
-      status: 'warning',
-      createdAt: '2024-01-05',
-      updatedAt: '2024-01-06',
-      catches: 234,
-      falsePositives: 89,
-      effectiveness: 72
-    },
-    {
-      id: 5,
-      name: 'Rapid Transaction Pattern',
-      description: 'Detect multiple transactions in quick succession from the same account',
-      category: 'Behavioral',
-      condition: 'transactions.count > 5 && timeWindow < 300',
-      severity: 'medium',
-      status: 'inactive',
-      createdAt: '2024-01-03',
-      updatedAt: '2024-01-04',
-      catches: 167,
-      falsePositives: 34,
-      effectiveness: 83
-    },
-    {
-      id: 6,
-      name: 'Device Fingerprint Mismatch',
-      description: 'Flag transactions from unrecognized devices for high-value accounts',
-      category: 'Technical',
-      condition: 'device.fingerprint_match === false && account.value > 50000',
-      severity: 'high',
-      status: 'warning',
-      createdAt: '2024-01-01',
-      updatedAt: '2024-01-02',
-      catches: 89,
-      falsePositives: 156,
-      effectiveness: 36
-    }
-  ];
-
+  rules: Rule[] = [];
   activeTab: 'active' | 'all' | 'attention' = 'all';
   searchQuery = '';
   isCreateModalOpen = false;
   isEditModalOpen = false;
   isChargebackAnalysisOpen = false;
   editingRule: Rule | null = null;
+  isLoading = false;
+  error: string | null = null;
 
   constructor() {
     makeAutoObservable(this);
+    this.loadRules();
+  }
+
+  // Load rules from Supabase
+  loadRules = async () => {
+    try {
+      this.isLoading = true;
+      this.error = null;
+      const rules = await SupabaseRulesService.getRules();
+      runInAction(() => {
+        this.rules = rules;
+      });
+    } catch (error) {
+      runInAction(() => {
+        this.error = error instanceof Error ? error.message : 'Failed to load rules';
+        console.error('Error loading rules:', error);
+      });
+    } finally {
+      runInAction(() => {
+        this.isLoading = false;
+      });
+    }
   }
 
   setActiveTab = (tab: 'active' | 'all' | 'attention') => {
@@ -124,10 +52,12 @@ export class RuleManagementStore {
 
   openCreateModal = () => {
     this.isCreateModalOpen = true;
+    this.editingRule = null;
   }
 
   closeCreateModal = () => {
     this.isCreateModalOpen = false;
+    this.editingRule = null;
   }
 
   openChargebackAnalysis = () => {
@@ -138,61 +68,105 @@ export class RuleManagementStore {
     this.isChargebackAnalysisOpen = false;
   }
 
-  editRule = (id: number) => {
+  editRule = (id: string) => {
     const rule = this.rules.find(r => r.id === id);
     if (rule) {
       this.editingRule = rule;
       this.isEditModalOpen = true;
-      console.log('Editing rule:', rule.name);
+      this.isCreateModalOpen = true; // Reuse the same modal
     }
   }
 
   closeEditModal = () => {
     this.isEditModalOpen = false;
     this.editingRule = null;
+    this.isCreateModalOpen = false;
   }
 
-  viewRuleHistory = (id: number) => {
+  viewRuleHistory = (id: string) => {
     const rule = this.rules.find(r => r.id === id);
     if (rule) {
       console.log('Viewing history for rule:', rule.name);
+      // TODO: Implement rule history functionality
     }
   }
 
-  deleteRule = (id: number) => {
-    this.rules = this.rules.filter(rule => rule.id !== id);
-  }
-
-  toggleRuleStatus = (id: number) => {
-    const rule = this.rules.find(r => r.id === id);
-    if (rule) {
-      if (rule.status === 'active') {
-        rule.status = 'inactive';
-      } else if (rule.status === 'inactive') {
-        rule.status = 'active';
-      }
-      rule.updatedAt = new Date().toISOString().split('T')[0];
+  deleteRule = async (id: string) => {
+    try {
+      await SupabaseRulesService.deleteRule(id);
+      // Remove from local state
+      runInAction(() => {
+        this.rules = this.rules.filter(rule => rule.id !== id);
+      });
+    } catch (error) {
+      console.error('Error deleting rule:', error);
+      this.error = error instanceof Error ? error.message : 'Failed to delete rule';
     }
   }
 
-  addRule = (ruleData: Omit<Rule, 'id' | 'createdAt' | 'updatedAt' | 'catches' | 'falsePositives' | 'effectiveness'>) => {
-    const newRule: Rule = {
-      ...ruleData,
-      id: Math.max(...this.rules.map(r => r.id)) + 1,
-      createdAt: new Date().toISOString().split('T')[0],
-      updatedAt: new Date().toISOString().split('T')[0],
-      catches: 0,
-      falsePositives: 0,
-      effectiveness: 0
-    };
-    this.rules.unshift(newRule);
+  toggleRuleStatus = async (id: string) => {
+    try {
+      const updatedRule = await SupabaseRulesService.toggleRuleStatus(id);
+      // Update local state
+      runInAction(() => {
+        const index = this.rules.findIndex(r => r.id === id);
+        if (index !== -1) {
+          this.rules[index] = updatedRule;
+        }
+      });
+    } catch (error) {
+      console.error('Error toggling rule status:', error);
+      this.error = error instanceof Error ? error.message : 'Failed to toggle rule status';
+    }
   }
 
-  updateRule = (id: number, updates: Partial<Rule>) => {
-    const rule = this.rules.find(r => r.id === id);
-    if (rule) {
-      Object.assign(rule, updates);
-      rule.updatedAt = new Date().toISOString().split('T')[0];
+  addRule = async (ruleData: CreateRuleData) => {
+    try {
+      const newRule = await SupabaseRulesService.createRule(ruleData);
+      // Add to local state
+      runInAction(() => {
+        this.rules.unshift(newRule);
+      });
+      return newRule;
+    } catch (error) {
+      console.error('Error creating rule:', error);
+      this.error = error instanceof Error ? error.message : 'Failed to create rule';
+      throw error;
+    }
+  }
+
+  updateRule = async (id: string, updates: UpdateRuleData) => {
+    try {
+      const updatedRule = await SupabaseRulesService.updateRule(id, updates);
+      // Update local state
+      runInAction(() => {
+        const index = this.rules.findIndex(r => r.id === id);
+        if (index !== -1) {
+          this.rules[index] = updatedRule;
+        }
+      });
+      return updatedRule;
+    } catch (error) {
+      console.error('Error updating rule:', error);
+      this.error = error instanceof Error ? error.message : 'Failed to update rule';
+      throw error;
+    }
+  }
+
+  searchRules = async (query: string) => {
+    try {
+      this.isLoading = true;
+      const rules = await SupabaseRulesService.searchRules(query);
+      runInAction(() => {
+        this.rules = rules;
+      });
+    } catch (error) {
+      console.error('Error searching rules:', error);
+      this.error = error instanceof Error ? error.message : 'Failed to search rules';
+    } finally {
+      runInAction(() => {
+        this.isLoading = false;
+      });
     }
   }
 
@@ -206,7 +180,7 @@ export class RuleManagementStore {
       filtered = filtered.filter(rule => 
         rule.status === 'warning' || 
         rule.effectiveness < 70 || 
-        rule.falsePositives > 100
+        rule.false_positives > 100
       );
     }
 
@@ -231,7 +205,7 @@ export class RuleManagementStore {
     return this.rules.filter(rule => 
       rule.status === 'warning' || 
       rule.effectiveness < 70 || 
-      rule.falsePositives > 100
+      rule.false_positives > 100
     ).length;
   }
 
@@ -245,6 +219,11 @@ export class RuleManagementStore {
 
   getRulesBySeverity = (severity: 'low' | 'medium' | 'high') => {
     return this.rules.filter(rule => rule.severity === severity);
+  }
+
+  // Clear any errors
+  clearError = () => {
+    this.error = null;
   }
 }
 

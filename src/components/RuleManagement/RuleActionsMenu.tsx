@@ -11,22 +11,24 @@ import {
 
 interface RuleActionsMenuProps {
   rule: {
-    id: number;
+    id: string;
     name: string;
     description: string;
     category: string;
     condition: string;
     severity: 'low' | 'medium' | 'high';
     status: 'active' | 'inactive' | 'warning';
-    createdAt: string;
-    updatedAt: string;
+    log_only: boolean;
+    created_at: string;
+    updated_at: string;
     catches: number;
-    falsePositives: number;
+    false_positives: number;
     effectiveness: number;
-  }
+  };
+  onDelete?: () => void;
 }
 
-const RuleActionsMenu = observer(({ rule }: RuleActionsMenuProps) => {
+const RuleActionsMenu = observer(({ rule, onDelete }: RuleActionsMenuProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -57,8 +59,8 @@ const RuleActionsMenu = observer(({ rule }: RuleActionsMenuProps) => {
         ruleManagementStore.toggleRuleStatus(rule.id);
         break;
       case 'delete':
-        if (window.confirm(`Are you sure you want to delete the rule "${rule.name}"?`)) {
-          ruleManagementStore.deleteRule(rule.id);
+        if (onDelete) {
+          onDelete();
         }
         break;
     }
