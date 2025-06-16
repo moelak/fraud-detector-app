@@ -141,7 +141,7 @@ const CreateRuleModal = observer(() => {
     ruleManagementStore.closeCreateModal();
   };
 
-  const handleInputChange = (field: keyof CreateRuleData, value: string | boolean) => {
+  const handleInputChange = (field: keyof CreateRuleData, value: string | boolean) => { 
     setFormData(prev => ({ ...prev, [field]: value }));
     // Clear error when user starts typing
     if (errors[field as keyof Partial<CreateRuleData>]) {
