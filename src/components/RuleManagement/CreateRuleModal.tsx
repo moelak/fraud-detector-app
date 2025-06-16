@@ -2,7 +2,7 @@ import { observer } from 'mobx-react-lite';
 import { useState, useEffect } from 'react';
 import { ruleManagementStore } from './RuleManagementStore';
 import { XMarkIcon } from '@heroicons/react/24/outline';
-import { CreateRuleData } from '../../lib/supabaseRules';
+import type { CreateRuleData } from '../../lib/supabaseRules';
 
 interface FormData extends CreateRuleData {}
 
